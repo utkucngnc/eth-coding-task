@@ -36,9 +36,9 @@ def load_df_from_csv(file_path: str, delimiter: str = ',') -> pd.DataFrame:
     assert file_path.endswith('.csv'), 'File must be a csv file'
     return pd.read_csv(file_path, delimiter=delimiter)
 
-def plot_signal(*args, xlabel: str = 'Time (s)', ylabel: str = 'Amplitude', sampling_rate: int = 2000, by_time: bool = True):
+def plot_signal(*signals, xlabel: str = 'Time (s)', ylabel: str = 'Amplitude', sampling_rate: int = 2000, by_time: bool = True):
     colors = cycle(["aqua", "black", "blue", "fuchsia", "gray", "green", "lime", "maroon", "navy", "olive", "purple", "red", "silver", "teal", "yellow"])
-    for signal in args:
+    for signal in signals:
         if by_time:
             time_index = np.arange(0, len(signal)/sampling_rate, 1/sampling_rate)
             plt.plot(time_index, signal, label = signal.name, color=next(colors))

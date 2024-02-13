@@ -1,10 +1,8 @@
 import logging
 import pandas as pd
 import numpy as np
-from scipy.signal import butter, lfilter, savgol_filter, sosfiltfilt
+from scipy.signal import butter, savgol_filter, sosfiltfilt
 from typing import List, Any
-
-from utils import plot_signal
 
 class ECG_Signal:
     def __init__(self, raw_ecg_signal: pd.Series, fs: int, logger: logging.Logger, cfg: Any) -> None:
@@ -25,6 +23,7 @@ class ECG_Signal:
         self.filtered_ecg = self.__square_signal(self.filtered_ecg)
         self.filtered_ecg = self.__apply_moving_average(self.filtered_ecg)
         self.filtered_ecg.rename(f'{self.raw.name} (Filtered)', inplace=True)
+        self.filtered_ecg.fillna(0, inplace=True)
         self.peak_indices = self.__calculate_peak_indices(self.filtered_ecg)
         self.heart_rate = self.__calculate_heart_rate().__round__(1)
 
@@ -103,7 +102,7 @@ class ECG_Signal:
             List[int]: The peak indices
         '''
         distance = int(0.2 * self.fs) # value based on the refractory period of the human cardiac cells
-        min_height = signal.mean()
+        min_height = signal.max() * 0.05
         peak_vals = []
         start = 0
         while True:
@@ -116,9 +115,9 @@ class ECG_Signal:
                     continue
                 delta = int(distance / 2)
                 if peak + delta > len(signal):
-                    peak = signal[peak - delta:].idxmax()
+                    peak = signal[peak:].idxmax()
                 else:
-                    peak = signal[peak-delta:peak+delta].idxmax()
+                    peak = signal[peak:peak+delta].idxmax()
                 peak_vals.append(peak)
                 start = peak + distance
             else:
