@@ -1,7 +1,7 @@
 import os
 
 from utils import *
-from src.ecgsig import ECG_Signal
+from src.recording import Recording
 
 cwd = os.getcwd()
 tar_path = f'{cwd}/data/ptt_dataset.tar'
@@ -15,5 +15,7 @@ logger = start_logger()
 #read_from_tar(tar_path, logger, extraction_path)
 
 df = load_df_from_csv(file_path)
-ecg = ECG_Signal(df['chest sternum ECG'], 2000, logger)
-plot_signal(ecg.filtered_ecg[:5000], ecg.raw.name)
+exg = df['chest sternum ECG']
+recording = Recording(df, logger)
+plot_signal(recording.ecg_raw[:5000], xlabel='Time (s)', ylabel='Amplitude', sampling_rate=recording.fs)
+print(f'Heart rate: {recording.heart_rate} bpm')

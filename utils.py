@@ -6,6 +6,7 @@ import tarfile
 import logging
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from itertools import cycle
 
 def start_logger(logger_name: str = 'logger'):
     logger = logging.getLogger(logger_name)
@@ -35,10 +36,15 @@ def load_df_from_csv(file_path: str, delimiter: str = ',') -> pd.DataFrame:
     assert file_path.endswith('.csv'), 'File must be a csv file'
     return pd.read_csv(file_path, delimiter=delimiter)
 
-def plot_signal(signal: pd.Series, title: str, xlabel: str = 'Time (s)', ylabel: str = 'Amplitude', sampling_rate: int = 2000):
-    time_index = np.arange(0, len(signal)/sampling_rate, 1/sampling_rate)
-    plt.plot(time_index, signal)
-    plt.title(title)
+def plot_signal(*args, xlabel: str = 'Time (s)', ylabel: str = 'Amplitude', sampling_rate: int = 2000, by_time: bool = True):
+    colors = cycle(["aqua", "black", "blue", "fuchsia", "gray", "green", "lime", "maroon", "navy", "olive", "purple", "red", "silver", "teal", "yellow"])
+    for signal in args:
+        if by_time:
+            time_index = np.arange(0, len(signal)/sampling_rate, 1/sampling_rate)
+            plt.plot(time_index, signal, label = signal.name, color=next(colors))
+        else:
+            plt.plot(signal, label = signal.name, color=next(colors))
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
+    plt.legend(loc="best")
     plt.show()
