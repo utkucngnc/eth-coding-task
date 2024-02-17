@@ -1,131 +1,50 @@
 import logging
 import pandas as pd
 import numpy as np
-from scipy.signal import butter, savgol_filter, sosfiltfilt
-from typing import List, Any
+from typing import Any
+from scipy.stats import zscore
+
+from src.utils import *
 
 class ECG_Signal:
     def __init__(self, raw_ecg_signal: pd.Series, fs: int, logger: logging.Logger, cfg: Any) -> None:
-        self.raw = raw_ecg_signal
+        self.raw_ecg = remove_outliers(raw_ecg_signal)
         self.fs = fs
         self.logger = logger
+        self.cfg = cfg
+    
+    def __len__(self) -> int:
+        return len(self.filtered_ecg)
+    
+    def apply_pan_tompkins(self) -> None:
+        '''
+        Apply the Pan-Tompkins algorithm to the ECG signal
+        1. Bandpass filter
+        2. Derivative filter
+        3. Moving average filter
+        4. Entropy calculation
+        5. Peak detection
+        6. Peak correction
+        7. Heart rate calculation
+        '''
 
-        # Pan - Tompkins algorithm
-        # 1. Bandpass filter
-        # 2. Derivative filter
-        # 3. Squaring
-        # 4. Moving average filter
-        # 5. Peak detection
-        # 6. Heart rate calculation
-        
-        self.filtered_ecg = self.__apply_bp_filter(signal = self.raw, **cfg.BPF_Param)
-        self.filtered_ecg = self.__apply_derivative_filter(signal = self.filtered_ecg, **cfg.SavGol_Param)
-        self.filtered_ecg = self.__square_signal(self.filtered_ecg)
-        self.filtered_ecg = self.__apply_moving_average(self.filtered_ecg)
-        self.filtered_ecg.rename(f'{self.raw.name} (Filtered)', inplace=True)
-        self.filtered_ecg.fillna(0, inplace=True)
-        self.peak_indices = self.__calculate_peak_indices(self.filtered_ecg)
+        self.logger.info(f'Applying Pan-Tompkins algorithm to {self.raw_ecg.name}')
+
+        self.filtered_ecg = apply_bp_filter(signal = self.raw_ecg, **self.cfg.BPF_Param, fs=self.fs)
+        self.filtered_ecg[np.abs(zscore(self.filtered_ecg)) > 2] = np.median(self.filtered_ecg)
+        self.filtered_ecg = apply_derivative_filter(signal = self.filtered_ecg, **self.cfg.SavGol_Param)
+        self.filtered_ecg = apply_rolling(self.filtered_ecg, fs=self.fs, **self.cfg.MA_Param)
+        self.filtered_ecg.rename(f'{self.raw_ecg.name} (Averaged)', inplace=True)
+        self.filtered_ecg.fillna(0.0, inplace=True)
+        self.filtered_ecg = self.filtered_ecg.apply(shannon_entropy)
+        self.peak_indices = calculate_peak_indices(self.filtered_ecg, fs=self.fs)
+        self.corrected_peak_indices = corrected_peaks(self.raw_ecg, self.peak_indices, self.fs)
         self.heart_rate = self.__calculate_heart_rate().__round__(1)
 
-    def __butter_bandpass(self, lowcut: int, highcut: int, order: int):
-        '''
-        Create a bandpass filter (Butterworth filter)
-        Input:
-            lowcut: int: The lower cutoff frequency
-            highcut: int: The higher cutoff frequency
-            order: int: The filter order
-        Output:
-            tuple: The filter coefficients
-        '''
-        nyq = 0.5 * self.fs
-        normalized_cutoffs = [lowcut / nyq, highcut / nyq]
-        sos = butter(order, normalized_cutoffs, btype='bandpass', output='sos')
-        return sos
-
-    def __apply_bp_filter(self, signal: pd.Series, lowcut: int, highcut: int, order: int) -> pd.Series:
-        '''
-        Apply a bandpass filter to the signal (Butterworth filter)
-        Input:
-            signal: pd.Series: The input signal
-            lowcut: int: The lower cutoff frequency
-            highcut: int: The higher cutoff frequency
-            order: int: The filter order
-        Output:
-            pd.Series: The filtered signal
-        '''
-        sos = self.__butter_bandpass(lowcut, highcut, order)
-        y = sosfiltfilt(sos, signal)
-        return pd.Series(y)
-    
-    def __apply_derivative_filter(self, signal: pd.Series, p: int, w: int, m: int) -> pd.Series:
-        '''
-        Apply a derivative filter to the signal (Savitzky-Golay filter)
-        Input:
-            signal: pd.Series: The input signal
-            p: int: The polynomial order
-            w: int: The window size
-            m: int: The derivative order
-        Output:
-            pd.Series: The filtered signal
-        '''
-        y = savgol_filter(signal, polyorder=p, window_length=w, deriv=m)
-        return pd.Series(y)
-    
-    def __square_signal(self, signal: pd.Series) -> pd.Series:
-        '''
-        Square the signal to maximize difference between peaks and valleys
-        Input:
-            signal: pd.Series: The input signal
-        Output:
-            pd.Series: The squared signal
-        '''
-        return signal**2
-    
-    def __apply_moving_average(self, signal: pd.Series) -> pd.Series:
-        '''
-        Apply a moving average filter to the signal
-        Input:
-            signal: pd.Series: The input signal
-            window_size: int: The window size
-        Output:
-            pd.Series: The filtered signal
-        '''
-        window_size = int(0.005 * self.fs)
-        return signal.rolling(window=window_size).mean()
-
-    def __calculate_peak_indices(self, signal: pd.Series) -> List[int]:
-        '''
-        Calculate the peak indices of the signal
-        Input:
-            signal: pd.Series: The input signal
-        Output:
-            List[int]: The peak indices
-        '''
-        distance = int(0.2 * self.fs) # value based on the refractory period of the human cardiac cells
-        min_height = signal.max() * 0.05
-        peak_vals = []
-        start = 0
-        while True:
-            if start > len(signal):
-                break
-            if start + distance < len(signal):
-                peak = signal[start:start+distance].idxmax()
-                if signal[peak] < min_height:
-                    start += distance
-                    continue
-                delta = int(distance / 2)
-                if peak + delta > len(signal):
-                    peak = signal[peak:].idxmax()
-                else:
-                    peak = signal[peak:peak+delta].idxmax()
-                peak_vals.append(peak)
-                start = peak + distance
-            else:
-                peak = signal[start:].idxmax()
-                peak_vals.append(peak) if signal[peak] > min_height else None
-                break
-                
-        return peak_vals
+        # Uncomment to see the difference between the scipy and the custom peak detection
+        # from scipy.signal import find_peaks
+        # self.scipy_peaks = find_peaks(self.filtered_ecg, distance=int(0.2 * self.fs), height=self.filtered_ecg.mean() + 0.5 * self.filtered_ecg.std())[0]
+        
     
     def __calculate_heart_rate(self) -> float:
         '''
@@ -133,6 +52,6 @@ class ECG_Signal:
         Output:
             float: The heart rate
         '''
-        intervals = np.diff(self.peak_indices)
+        intervals = np.diff(self.corrected_peak_indices)
 
         return 60 / (intervals.mean() / self.fs)

@@ -36,14 +36,43 @@ def load_df_from_csv(file_path: str, delimiter: str = ',') -> pd.DataFrame:
     assert file_path.endswith('.csv'), 'File must be a csv file'
     return pd.read_csv(file_path, delimiter=delimiter)
 
+def plot_signal_with_markers(signal: pd.Series, *markers, title: str = None, xlabel: str = 'Time (s)', ylabel: str = 'Amplitude', sampling_rate: int = 2000):
+    color_markers = cycle(["maroon", "navy", "olive", "purple", "red", "silver", "teal", "yellow"])
+    time_index = np.arange(0, len(signal)/sampling_rate, 1/sampling_rate)
+    plt.plot(time_index, signal / signal.max(), label = signal.name, color='black')
+    for marker in markers:
+        plt.scatter(time_index[marker], signal[marker] / signal.max(), label = marker.name, color=next(color_markers))
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    if title:
+        plt.title(title)
+    plt.legend(loc="best")
+    plt.show()
+
+def plot_signals_with_marker(*signals, marker: pd.Series, title: str = None, xlabel: str = 'Time (s)', ylabel: str = 'Amplitude', sampling_rate: int = 2000):
+    assert len(signals) > 0, 'At least one signal must be provided'
+    color_signals = cycle(["black", "blue", "fuchsia", "gray", "green", "lime"])
+    time_index = np.arange(0, len(signals[0])/sampling_rate, 1/sampling_rate)
+    for signal in signals:
+        plt.plot(time_index, signal / signal.max(), label = signal.name, color=next(color_signals))
+    plt.scatter(time_index[marker], signals[0][marker] / signals[0].max(), label = marker.name, color='red')
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    if title:
+        plt.title(title)
+    plt.legend(loc="best")
+    plt.show()
+
+
 def plot_signal(*signals, xlabel: str = 'Time (s)', ylabel: str = 'Amplitude', sampling_rate: int = 2000, by_time: bool = True):
     colors = cycle(["aqua", "black", "blue", "fuchsia", "gray", "green", "lime", "maroon", "navy", "olive", "purple", "red", "silver", "teal", "yellow"])
     for signal in signals:
+        label = signal.name if isinstance(signal, pd.Series) else 'Signal'
         if by_time:
             time_index = np.arange(0, len(signal)/sampling_rate, 1/sampling_rate)
-            plt.plot(time_index, signal, label = signal.name, color=next(colors))
+            plt.plot(time_index, signal, label = label, color=next(colors))
         else:
-            plt.plot(signal, label = signal.name, color=next(colors))
+            plt.plot(signal, label = label, color=next(colors))
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.legend(loc="best")
