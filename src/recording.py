@@ -25,11 +25,11 @@ class Recording:
     def process_ecg(self) -> None:
         from src.ecg_signal import ECG_Signal
         raw_data = self.recording['chest sternum ECG'].copy()
-        self.ecg = ECG_Signal(raw_data, logger=self.logger, fs=self.fs, cfg=Config)
-        self.ecg.apply_pan_tompkins()
+        self.ecg = ECG_Signal(raw_data, logger=self.logger, fs=self.fs, cfg=Config.ECG_Param)
+        self.ecg.apply_pan_tompkins(Config.ecg_filter_type)
         self.logger.info(f'ECG signal processed for session {self.session} ({self.state})')
         self.r_peaks = fit_to_index(self.ecg.peak_indices, self.ecg.raw_ecg).rename('R-Peaks')
-        self.r_peaks_corrected = fit_to_index(self.ecg.corrected_peak_indices, self.ecg.raw_ecg).rename('R-Peaks Corrected')
+        self.r_peaks_corrected = fit_to_index(self.ecg.peak_indices_corrected, self.ecg.raw_ecg).rename('R-Peaks Corrected')
         # Uncomment to see the difference between the scipy and the custom peak detection (uncomment in ecg_signal.py as well)
         # self.r_peaks_scipy = fit_to_index(self.ecg.scipy_peaks, self.ecg.raw_ecg).rename('R-Peaks Scipy')
         return self
@@ -42,8 +42,12 @@ class Recording:
         return self
     
     def process_bcg(self) -> None:
-        self.bcg = self.recording.filter(regex='BCG')
-        self.logger.info(f'BSC values stored for session {self.session} ({self.state})')
+        from src.bcg_signal import BCG_Signal
+        raw_data = self.recording.filter(regex='BCG').iloc[:,0].rename('Force Plate BCG')
+        self.bcg = BCG_Signal(raw_data, fs=self.fs, logger=self.logger, cfg=Config.BCG_Param)
+        self.logger.info(f'BCG (Force Plate) values stored for session {self.session} ({self.state})')
+        self.J_peaks = fit_to_index(self.bcg.process(self.ecg.peak_indices_corrected),self.bcg.raw_bcg).rename('J-Peaks')
+        self.J_peaks_calculated = fit_to_index(self.bcg.peak_indices_corrected,self.bcg.raw_bcg).rename('J-Peaks Calculated')
         return self
 
     def process_bp(self) -> None:

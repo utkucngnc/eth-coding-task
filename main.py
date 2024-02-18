@@ -48,5 +48,6 @@ title  = f'{recording.state} -- {recording.ecg.heart_rate} bpm'
 #plot_signal(recording.ecg.filtered_ecg[idx])
 
 # Plot the IMU data
-plot_signal_with_markers(recording.ecg.raw_ecg[idx], recording.r_peaks_corrected[idx],title = title)
-#plot_signals_with_marker(recording.ecg.bb[idx],recording.ecg.dd[idx], marker = recording.r_peaks_corrected[idx], title = title)
+plot_signal_with_markers(recording.ecg.raw_ecg[idx], recording.r_peaks_corrected[idx], recording.J_peaks[idx],recording.J_peaks_calculated[idx],title = title)
+#plot_signal_with_markers(recording.ecg.raw_ecg[idx], recording.r_peaks_corrected[idx],title = title)
+#plot_signals_with_marker(recording.ecg.raw_ecg[idx],recording.bcg.filtered_bcg[idx], marker = recording.J_peaks[idx],title = title)

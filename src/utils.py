@@ -1,7 +1,7 @@
 from scipy.signal import butter, sosfiltfilt, savgol_filter
 import pandas as pd
 import numpy as np
-from typing import List, Union
+from typing import List, Union, Any
 
 def remove_outliers(signal: pd.Series):
     '''
@@ -15,6 +15,16 @@ def remove_outliers(signal: pd.Series):
     y.reset_index(drop=True, inplace=True)
     y.rename(signal.name, inplace=True)
     return y
+
+def round_within(x: float, lower_bound: int = 0, upper_bound: int = None) -> int:
+    '''
+    Round the input to the nearest natural number
+    Input:
+        x: float: The input number
+    Output:
+        int: The rounded number
+    '''
+    return 0 if x < lower_bound else int(x) if not upper_bound else upper_bound if x > upper_bound else int(x)
 
 def butter_bandpass(lowcut: int, highcut: int, order: int, fs: int):
     '''
@@ -62,7 +72,7 @@ def apply_derivative_filter(signal: pd.Series, p: int, w: int, m: int) -> pd.Ser
 
 def apply_rolling(signal: pd.Series, fs: int, window_ms: int, win_type: str = None, rolling_type: str = ['mean' or 'median']) -> pd.Series:
     '''
-    Apply a moving average filter to the signal
+    Apply a rolling filter to the signal
     Input:
         signal: pd.Series: The input signal
         window_size: int: The window size
@@ -70,8 +80,19 @@ def apply_rolling(signal: pd.Series, fs: int, window_ms: int, win_type: str = No
         pd.Series: The filtered signal
     '''
     window_size = int(window_ms * fs * 1e-3)
-    obs = signal.rolling(window=window_size, win_type = win_type if win_type else None)
+    obs = signal.rolling(min_periods=1, window=window_size, win_type = win_type if win_type else None)
     return obs.mean() if rolling_type == 'mean' else obs.median()
+
+def apply_rolling_ema(signal: pd.Series, span: int) -> pd.Series:
+    '''
+    Apply a rolling filter to the signal
+    Input:
+        signal: pd.Series: The input signal
+        span: int: The span size
+    Output:
+        pd.Series: The filtered signal
+    '''
+    return signal.ewm(span=span, adjust=False).mean()
 
 def calculate_peak_indices(signal: pd.Series, fs: int) -> List[int]:
     '''
@@ -85,19 +106,17 @@ def calculate_peak_indices(signal: pd.Series, fs: int) -> List[int]:
     min_height = signal.mean() + 1.5 * signal.std()
     peak_vals = []
     start = int(0.01 * fs) # 10ms offset
+    end = len(signal)
     while True:
-        if start > len(signal):
+        if start > end:
             break
         if start + distance < len(signal):
-            peak = signal[start:start+distance].idxmax()
+            peak = signal[start:round_within(start + distance, upper_bound=end)].idxmax()
             if signal[peak] < min_height:
                 start += distance
                 continue
             delta = int(distance / 2)
-            if peak + delta > len(signal):
-                peak = signal[peak:].idxmax()
-            else:
-                peak = signal[peak:peak+delta].idxmax()
+            peak = signal[peak:round_within(peak+delta, upper_bound=end)].idxmax()
             peak_vals.append(peak)
             start = peak + distance
         else:
@@ -105,6 +124,25 @@ def calculate_peak_indices(signal: pd.Series, fs: int) -> List[int]:
             peak_vals.append(peak) if signal[peak] > min_height else None
             break
             
+    return peak_vals
+
+def calculate_peak_indices_conditioned(signal: pd.Series, fs: int, r_peaks: List[int]) -> List[int]:
+    '''
+    Calculate the peak indices of the signal
+    Input:
+        signal: pd.Series: The input signal
+        fs: int: The sampling frequency
+        r_peaks: List[int]: The condition to apply
+    Output:
+        List[int]: The peak indices
+    '''
+    peak_vals = []
+    end = len(signal)
+    
+    for peak in r_peaks:
+        time_margin = slice(round_within(peak + 0.1 * fs, upper_bound=end), round_within(peak + 0.3 * fs, upper_bound=end))
+        local_max = signal[time_margin].idxmax()
+        peak_vals.append(local_max)
     return peak_vals
 
 def corrected_peaks(signal: pd.Series, peaks: List[int], fs: int) -> List[int]:
@@ -116,14 +154,13 @@ def corrected_peaks(signal: pd.Series, peaks: List[int], fs: int) -> List[int]:
     Output:
         List[int]: The corrected peak indices
     '''
+    end = len(signal)
     corrected_peaks = []
     for peak in peaks:
-        window = slice(int(peak - 0.07 * fs), int(peak + 0.07 * fs))
+        window = slice(round_within(peak - 0.07 * fs, upper_bound=end), round_within(peak + 0.07 * fs, upper_bound=end))
         local_max = signal[window].idxmax()
-        if peak != local_max:
+        if peak >= local_max:
             corrected_peaks.append(local_max)
-        else:
-            corrected_peaks.append(peak)
     return corrected_peaks
 
 def shannon_entropy(val: Union[List[float],float]) -> float:

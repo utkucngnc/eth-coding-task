@@ -13,23 +13,54 @@ class Config:
         9: 'Exercise',
         10: 'rest after exert'
     }
-    # Bandpass Filter Parameters
-    BPF_Param = {
-        'lowcut': 5,
-        'highcut': 20,
-        'order': 1
-    }
 
-    # Derivative Filter Parameters
-    SavGol_Param = {
-        'p': 3,
-        'w': 10,
-        'm': 1
-    }
+    ecg_filter_type = 'ema'
 
-    # Moving Average Filter Parameters
-    MA_Param = {
-        'window_ms': 5,
-        'rolling_type': 'mean',
-        'win_type': 'triang'
-    }
+    class ECG_Param:
+        # Bandpass Filter Parameters
+        BPF_Param = {
+            'lowcut': 10,
+            'highcut': 30,
+            'order': 1
+        }
+
+        # Derivative Filter Parameters
+        SavGol_Param = {
+            'p': 4,
+            'w': 21,
+            'm': 1
+        }
+
+        # Moving Average Filter Parameters
+        MA_Param = {
+            'window_ms': 5,
+            'rolling_type': 'mean',
+            'win_type': 'triang'
+        }
+
+        # Exponential Moving Average Filter Parameters
+        EMA_Param = {
+            'span': 10 # alpha = 2 / (span + 1) [Etemadi+11]
+        }
+    
+    class BCG_Param:
+        # Bandpass Filter Parameters
+        BPF_Param = {
+            'lowcut': 10,
+            'highcut': 30,
+            'order': 1
+        }
+
+        # Derivative Filter Parameters
+        SavGol_Param = {
+            'p': 4,
+            'w': 21,
+            'm': 1
+        }
+
+        # Exponential Moving Average Filter Parameters
+        EMA_Param = {
+            'span': 10 # alpha = 2 / (span + 1) [Etemadi+11]
+        }
+
+        

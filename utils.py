@@ -55,6 +55,7 @@ def plot_signals_with_marker(*signals, marker: pd.Series, title: str = None, xla
     time_index = np.arange(0, len(signals[0])/sampling_rate, 1/sampling_rate)
     for signal in signals:
         plt.plot(time_index, signal / signal.max(), label = signal.name, color=next(color_signals))
+        print(signal.name)
     plt.scatter(time_index[marker], signals[0][marker] / signals[0].max(), label = marker.name, color='red')
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
