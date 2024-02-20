@@ -47,6 +47,7 @@ def plot_signal_with_markers(signal: pd.Series, *markers, title: str = None, xla
     if title:
         plt.title(title)
     plt.legend(loc="best")
+    plt.grid(axis='x',color='r', linestyle='--', linewidth=0.2)
     plt.show()
 
 def plot_signals_with_marker(*signals, marker: pd.Series, title: str = None, xlabel: str = 'Time (s)', ylabel: str = 'Amplitude', sampling_rate: int = 2000):
@@ -55,13 +56,13 @@ def plot_signals_with_marker(*signals, marker: pd.Series, title: str = None, xla
     time_index = np.arange(0, len(signals[0])/sampling_rate, 1/sampling_rate)
     for signal in signals:
         plt.plot(time_index, signal / signal.max(), label = signal.name, color=next(color_signals))
-        print(signal.name)
     plt.scatter(time_index[marker], signals[0][marker] / signals[0].max(), label = marker.name, color='red')
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     if title:
         plt.title(title)
     plt.legend(loc="best")
+    plt.grid(axis='x',color='r', linestyle='--', linewidth=0.2)
     plt.show()
 
 
@@ -77,4 +78,5 @@ def plot_signal(*signals, xlabel: str = 'Time (s)', ylabel: str = 'Amplitude', s
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.legend(loc="best")
+    plt.grid(axis='x',color='r', linestyle='--', linewidth=0.2)
     plt.show()

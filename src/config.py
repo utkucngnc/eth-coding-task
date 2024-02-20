@@ -19,7 +19,7 @@ class Config:
     class ECG_Param:
         # Bandpass Filter Parameters
         BPF_Param = {
-            'lowcut': 10,
+            'lowcut': 5,
             'highcut': 30,
             'order': 1
         }

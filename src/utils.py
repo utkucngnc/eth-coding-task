@@ -126,7 +126,7 @@ def calculate_peak_indices(signal: pd.Series, fs: int) -> List[int]:
             
     return peak_vals
 
-def calculate_peak_indices_conditioned(signal: pd.Series, fs: int, r_peaks: List[int]) -> List[int]:
+def calculate_peak_indices_conditioned(signal: pd.Series, fs: int, r_peaks: List[int], lbound: float = 0.1, ubound: float = 0.3) -> List[int]:
     '''
     Calculate the peak indices of the signal
     Input:
@@ -140,7 +140,7 @@ def calculate_peak_indices_conditioned(signal: pd.Series, fs: int, r_peaks: List
     end = len(signal)
     
     for peak in r_peaks:
-        time_margin = slice(round_within(peak + 0.1 * fs, upper_bound=end), round_within(peak + 0.3 * fs, upper_bound=end))
+        time_margin = slice(round_within(peak + lbound * fs, upper_bound=end), round_within(peak + ubound * fs, upper_bound=end))
         local_max = signal[time_margin].idxmax()
         peak_vals.append(local_max)
     return peak_vals
@@ -159,9 +159,30 @@ def corrected_peaks(signal: pd.Series, peaks: List[int], fs: int) -> List[int]:
     for peak in peaks:
         window = slice(round_within(peak - 0.07 * fs, upper_bound=end), round_within(peak + 0.07 * fs, upper_bound=end))
         local_max = signal[window].idxmax()
-        if peak >= local_max:
+        if local_max != peak:
             corrected_peaks.append(local_max)
+        else:
+            corrected_peaks.append(peak)
     return corrected_peaks
+
+def calculate_valleys(signal: pd.Series, peaks: List[int], fs: int) -> List[int]:
+    '''
+    Calculate the valley indices based on the signal
+    Input:
+        signal: pd.Series: The input signal
+        peaks: List[int]: The peak indices
+    Output:
+        List[int]: The valley indices
+    '''
+    end = len(signal)
+    bwd_valleys = []
+    fwd_valleys = []
+    for peak in peaks:
+        bwd_window = slice(round_within(peak - 0.05 * fs, upper_bound=end), peak)
+        fwd_window = slice(peak, round_within(peak + 0.05 * fs, upper_bound=end))
+        bwd_valleys.append(signal[bwd_window].idxmin())
+        fwd_valleys.append(signal[fwd_window].idxmin())
+    return bwd_valleys, fwd_valleys
 
 def shannon_entropy(val: Union[List[float],float]) -> float:
     '''

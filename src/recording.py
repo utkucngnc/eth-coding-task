@@ -2,9 +2,11 @@ import pandas as pd
 from typing import List, Union
 import numpy as np
 import logging
+from matplotlib import pyplot as plt
 
 from src.config import Config
-from src.utils import fit_to_index
+from src.utils import *
+from utils import plot_signal
 
 class Recording:
     def __init__(
@@ -35,9 +37,11 @@ class Recording:
         return self
     
     def process_imu(self) -> None:
-        from src.imu_signal import IMU_Signal
         self.imu = pd.Series(self.recording.filter(regex='IMU').values.tolist()).rename('IMU (Z, Y, X)')
-        self.imu = IMU_Signal(self.imu, self.logger)
+        self.imu_processed = self.imu.apply(shannon_entropy).rename('IMU Entropy')
+        self.imu_z = self.imu.apply(lambda x: x[0]).rename('IMU Z')
+        self.imu_y = self.imu.apply(lambda x: x[1]).rename('IMU Y')
+        self.imu_x = self.imu.apply(lambda x: x[2]).rename('IMU X')
         self.logger.info(f'IMU values stored for session {self.session} ({self.state})')
         return self
     
@@ -46,26 +50,43 @@ class Recording:
         raw_data = self.recording.filter(regex='BCG').iloc[:,0].rename('Force Plate BCG')
         self.bcg = BCG_Signal(raw_data, fs=self.fs, logger=self.logger, cfg=Config.BCG_Param)
         self.logger.info(f'BCG (Force Plate) values stored for session {self.session} ({self.state})')
-        self.J_peaks = fit_to_index(self.bcg.process(self.ecg.peak_indices_corrected),self.bcg.raw_bcg).rename('J-Peaks')
-        self.J_peaks_calculated = fit_to_index(self.bcg.peak_indices_corrected,self.bcg.raw_bcg).rename('J-Peaks Calculated')
+        I_valleys, J_peaks, K_valleys = self.bcg.process(self.ecg.peak_indices_corrected)
+        self.IJK = [I_valleys, J_peaks, K_valleys]
+        self.J_peaks = fit_to_index(J_peaks,self.bcg.raw_bcg).rename('J')
+        self.I_valleys = fit_to_index(I_valleys,self.bcg.raw_bcg).rename('I')
+        self.K_valleys = fit_to_index(K_valleys,self.bcg.raw_bcg).rename('K')
+        self.IJK_fitted = pd.concat([self.I_valleys, self.J_peaks, self.K_valleys], axis=1)
         return self
 
     def process_bp(self) -> None:
-        self.bp = self.recording.filter(regex='BP').rename(columns=lambda x: x.split(' ')[-1])
+        self.bp = self.recording.filter(regex='BP').iloc[:,0].rename('Blood Pressure')
         self.logger.info(f'BP values stored for session {self.session} ({self.state})')
         return self
     
     def process_ppg(self) -> None:
-        self.ppg = self.recording.filter(regex='PPG').rename(columns=lambda x: x.split(' ')[-1])
+        from src.ppg_signal import PPG_Signal
+        self.ppg = self.recording.filter(regex='PPG').iloc[:,0].rename('PPG')
         self.logger.info(f'PPG values stored for session {self.session} ({self.state})')
+        self.ppg = PPG_Signal(self.ppg, self.fs, self.logger, Config.BCG_Param)
+        self.finger_avg_ptt = self.ppg.process(self.IJK, self.ecg.peak_indices_corrected)
+        self.troughs = fit_to_index(self.ppg.troughs, self.ppg.filtered_ppg).rename('Troughs')
         return self
     
     def process_systolic_p(self) -> None:
-        self.systolic_p = self.recording.filter(regex='systolic').rename(columns=lambda x: x.split(' ')[-1])
+        self.systolic_p = self.recording['finapres systolic']
         self.logger.info(f'Systolic Pressure values stored for session {self.session} ({self.state})')
         return self
     
     def process_diastolic_p(self) -> None:
-        self.diastolic_p = self.recording.filter(regex='diastolic').rename(columns=lambda x: x.split(' ')[-1])
+        self.diastolic_p = self.recording['finapres diastolic']
         self.logger.info(f'Diastolic Pressure values stored for session {self.session} ({self.state})')
+        return self
+    
+    def process_head_ppg(self) -> None:
+        from src.ppg_signal import PPG_Signal
+        raw_data = pd.Series(self.recording.filter(regex='head forehead PPG').values.tolist()).rename('Head PPG (IR, R, G)')
+        self.logger.info(f'Head PPG values stored for session {self.session} ({self.state})')
+        self.processed_head_ppg = raw_data.apply(shannon_entropy).rename('Head PPG Entropy')
+        self.processed_head_ppg = PPG_Signal(self.processed_head_ppg, self.fs, self.logger, Config.BCG_Param)
+        self.head_avg_ptt = self.processed_head_ppg.process(self.IJK, self.ecg.peak_indices_corrected)
         return self
