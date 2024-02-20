@@ -35,7 +35,7 @@ conda env create -f environment.yml
 ![Average PTT Calculated w/ Finger PPG](./figures/ptt_w_ppg.png)
 ![Head PPG Entropy and ECG](./figures/average_ptt_head_ppg.png)
 ![Head PPG Entropy and Individual Head PPG values (IR, R, G)](./figures/head_ppg_shannon_applied.png)
-![Accelerometer BCG and Force plate BCG](./figures/imu_bcg_vs_forceplate_bcg.png)
+![Accelerometer BCG and Force plate BCG](./figures/imu_bcg_forceplate_bcg.png)
 
 # To - Do
 
